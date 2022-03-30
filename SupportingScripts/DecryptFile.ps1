@@ -7,6 +7,7 @@ function DecryptFile($key_file,$file)
     $decrypted_file_name = $segments[0]+"."+$segments[1]
     $base_path           = (Get-Location).Path
     $out_path            = $base_path+"\"+$decrypted_file_name 
+    $file_path           = $base_path+"\"+$file
 
     $cipher = New-Object System.Security.Cryptography.AesCryptoServiceProvider
     $cipher.Key = $key
@@ -16,13 +17,11 @@ function DecryptFile($key_file,$file)
     $cipher.IV       = $ct_file_content[0..15]
 
     $decipher_obj  = $cipher.CreateDecryptor()
-    $pre_pt_bytes  = $decipher_obj.TransformFinalBlock($ct_file_content, 16, $ct_file_content.Length-16)
-    
-    $plaintext     = [System.Text.Encoding]::UTF8.GetString($pre_pt_bytes)
-    Set-Content -Path $out_path -Value $plaintext 
+    $plaintext  = $decipher_obj.TransformFinalBlock($ct_file_content, 16, $ct_file_content.Length-16)
+    Set-Content -Path $out_path -Value $plaintext -Encoding Byte
     Remove-Item $file
     $cipher.Dispose()
 
 }
 
-DecryptFile 'aes.key' 'test.txt.enc'
+DecryptFile 'aes.key' 'doc.pdf.enc'
