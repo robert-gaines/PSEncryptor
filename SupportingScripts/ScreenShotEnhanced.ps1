@@ -1,5 +1,5 @@
 ﻿
-function main()
+function ScreenShot()
 {
     [Reflection.Assembly]::LoadWithPartialName("System.Drawing") | Out-Null
 
@@ -41,9 +41,9 @@ function main()
 
     $currentUser = $env:USERNAME
 
-    screenshot $bounds "C:\Users\$currentUser\Desktop\$imageTitle"
+    screenshot $bounds ".\$imageTitle"
 
-    $imagePath = "C:\Users\$currentUser\Desktop\$imageTitle"
+    #$imagePath = "C:\Users\$currentUser\Desktop\$imageTitle"
 }
 
-main
+ScreenShot

