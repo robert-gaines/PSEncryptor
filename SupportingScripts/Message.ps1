@@ -16,6 +16,8 @@
     return $walletString
 }
 
+function DisplayMessage()
+{
 $walletAddr = GenFakeWalletAddr
 
 $Text = @'
@@ -61,22 +63,44 @@ $Text = @'
 
 '@ -f $walletAddr
 
+$query = Get-CIMInstance -ClassName Win32_VideoController
+
+    $x_sum = 0
+    $y_sum = 0
+
+    $query | Foreach-Object {
+                                $x = $_.CurrentHorizontalResolution
+                                $y = $_.CurrentVerticalResolution 
+
+                                if($x -and $y)
+                                {
+                                    $x_sum += $x 
+                                    $y_sum += $y 
+                                }
+
+                            }
+
 Add-Type -AssemblyName System.Windows.Forms
 
 $Label = New-Object System.Windows.Forms.Label
 $Label.TabIndex = 1
 $Label.Text = $Text
-$Label.ForeColor = 'Black'
+$Label.ForeColor = 'Lime'
 $Label.AutoSize = $True
 $Label.Font = "Lucida Console, 16pt, style=Regular"
 $Label.Location = '0, 30'
-
 $Form = New-Object system.Windows.Forms.Form
-$Form.AutoSize()
+$Form.AutoSize    = $true
+$Form.Size.Width  = $x_sum 
+$Form.Size.Height = $y_sum 
+$dimensions = [System.Windows.Forms.SystemInformation]::VirtualScreen
 $Form.Controls.Add($Label)
 $Form.WindowState = 'Maximized'
 $Form.FormBorderStyle = 'None'
-$Form.BackColor = "#DC143C"
+$Form.BackColor = "#FF000000"
 $Form.Cursor=[System.Windows.Forms.Cursors]::WaitCursor
 $Form.ShowDialog()
+}
+
+DisplayMessage
 
