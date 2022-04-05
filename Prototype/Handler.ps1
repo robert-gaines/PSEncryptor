@@ -143,7 +143,7 @@ function PSHandler($port)
                             $transmission += $text
                             $transmitter.WriteLine($transmission)
                             $transmitter.Flush()
-                            Write-Host "[*] Transmitted text to remote host for artifical vocalization "
+                            Write-Host "[*] Transmitted text to remote host for artificial vocalization "
                             $plaintext_cmd = Read-Host "[*]>>>"
                             $cmd           = [System.Text.Encoding]::Unicode.GetBytes($plaintext_cmd)
                             $cmd           = [Convert]::ToBase64String($cmd)
