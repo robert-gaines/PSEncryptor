@@ -1,1 +1,1 @@
-# PowerShells
+# Power Shell Ransomware
